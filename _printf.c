@@ -1,6 +1,5 @@
-#include <stdio.h>
+h#include <stdio.h>
 #include <stdarg.h>
-
 /**
  * print_char - Print a single character.
  * @ch: The character to print.
@@ -11,7 +10,6 @@ void print_char(char ch, int *count)
 	putchar(ch);
 	(*count)++;
 }
-
 /**
  * print_string - Print a string.
  * @str: The string to print.
@@ -26,7 +24,6 @@ void print_string(const char *str, int *count)
 		(*count)++;
 	}
 }
-
 /**
  * _printf - Custom implementation of printf.
  * @format: The format string with zero or more directives.
@@ -75,14 +72,11 @@ int _printf(const char *format, ...)
 		{
 			print_char(*format, &count);
 		}
-
-		format++;
-	}
-
-	va_end(args);
-	return (count);
+format++;
 }
-
+va_end(args);
+return (count);
+}
 int main(void)
 {
 	_printf("Hello, %s! This is a test. %c%c\n", "Alice", 'H', 'i');
