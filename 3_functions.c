@@ -1,267 +1,188 @@
-#include <stdio.h>
-#include <stdarg.h>
+#include "main.h"
 
+/****************** PRINT POINTER ******************/
 /**
- * print_char - Print a single character.
- * @ch: The character to print.
- * @count: Pointer to the count of characters printed.
+ * print_pointer - Prints the value of a pointer variable
+ * @types: List a of arguments
+ * @buffer: Buffer array to handle print
+ * @flags:  Calculates active flags
+ * @width: get width
+ * @precision: Precision specification
+ * @size: Size specifier
+ * Return: Number of chars printed.
  */
-void print_char(char ch, int *count)
+int print_pointer(va_list types, char buffer[],
+	int flags, int width, int precision, int size)
 {
-	putchar(ch);
-	(*count)++;
+	char extra_c = 0, padd = ' ';
+	int ind = BUFF_SIZE - 2, length = 2, padd_start = 1; /* length=2, for '0x' */
+	unsigned long num_addrs;
+	char map_to[] = "0123456789abcdef";
+	void *addrs = va_arg(types, void *);
+
+	UNUSED(width);
+	UNUSED(size);
+
+	if (addrs == NULL)
+		return (write(1, "(nil)", 5));
+
+	buffer[BUFF_SIZE - 1] = '\0';
+	UNUSED(precision);
+
+	num_addrs = (unsigned long)addrs;
+
+	while (num_addrs > 0)
+	{
+		buffer[ind--] = map_to[num_addrs % 16];
+		num_addrs /= 16;
+		length++;
+	}
+
+	if ((flags & F_ZERO) && !(flags & F_MINUS))
+		padd = '0';
+	if (flags & F_PLUS)
+		extra_c = '+', length++;
+	else if (flags & F_SPACE)
+		extra_c = ' ', length++;
+
+	ind++;
+
+	/*return (write(1, &buffer[i], BUFF_SIZE - i - 1));*/
+	return (write_pointer(buffer, ind, length,
+		width, flags, padd, extra_c, padd_start));
 }
 
+/************************* PRINT NON PRINTABLE *************************/
 /**
- * print_string - Print a string.
- * @str: The string to print.
- * @count: Pointer to the count of characters printed.
+ * print_non_printable - Prints ascii codes in hexa of non printable chars
+ * @types: Lista of arguments
+ * @buffer: Buffer array to handle print
+ * @flags:  Calculates active flags
+ * @width: get width
+ * @precision: Precision specification
+ * @size: Size specifier
+ * Return: Number of chars printed
  */
-void print_string(const char *str, int *count)
+int print_non_printable(va_list types, char buffer[],
+	int flags, int width, int precision, int size)
 {
-	while (*str)
+	int i = 0, offset = 0;
+	char *str = va_arg(types, char *);
+
+	UNUSED(flags);
+	UNUSED(width);
+	UNUSED(precision);
+	UNUSED(size);
+
+	if (str == NULL)
+		return (write(1, "(null)", 6));
+
+	while (str[i] != '\0')
 	{
-		putchar(*str);
-		str++;
-		(*count)++;
-	}
-}
-
-/**
- * print_integer - Print a signed integer.
- * @num: The integer to print.
- * @count: Pointer to the count of characters printed.
- */
-void print_integer(int num, int *count)
-{
-	int temp = num;
-
-	if (num < 0)
-	{
-		print_char('-', count);
-		num = -num;
-	}
-
-	int divisor = 1;
-	while (temp / 10 != 0)
-	{
-		divisor *= 10;
-		temp /= 10;
-	}
-
-	do
-	{
-		int digit = num / divisor;
-		print_char(digit + '0', count);
-		num %= divisor;
-		divisor /= 10;
-	} while (divisor != 0);
-}
-
-/**
- * print_unsigned - Print an unsigned integer.
- * @num: The unsigned integer to print.
- * @count: Pointer to the count of characters printed.
- */
-void print_unsigned(unsigned int num, int *count)
-{
-	if (num == 0)
-	{
-		print_char('0', count);
-		return;
-	}
-
-	unsigned int temp = num;
-	unsigned int divisor = 1;
-
-	while (temp / 10 != 0)
-	{
-		divisor *= 10;
-		temp /= 10;
-	}
-
-	do
-	{
-		unsigned int digit = num / divisor;
-		print_char(digit + '0', count);
-		num %= divisor;
-		divisor /= 10;
-	} while (divisor != 0);
-}
-
-/**
- * print_octal - Print an unsigned integer in octal format.
- * @num: The unsigned integer to print.
- * @count: Pointer to the count of characters printed.
- */
-void print_octal(unsigned int num, int *count)
-{
-	if (num == 0)
-	{
-		print_char('0', count);
-		return;
-	}
-
-	int octalNum[100];
-	int i = 0;
-
-	while (num != 0)
-	{
-		octalNum[i] = num % 8;
-		num /= 8;
-		i++;
-	}
-
-	for (int j = i - 1; j >= 0; j--)
-	{
-		print_char(octalNum[j] + '0', count);
-	}
-}
-
-/**
- * print_hex - Print an unsigned integer in lowercase hexadecimal format.
- * @num: The unsigned integer to print.
- * @count: Pointer to the count of characters printed.
- */
-void print_hex(unsigned int num, int *count)
-{
-	if (num == 0)
-	{
-		print_char('0', count);
-		return;
-	}
-
-	int rem;
-	char hex[100];
-	int i = 0;
-
-	while (num != 0)
-	{
-		rem = num % 16;
-
-		if (rem < 10)
-			hex[i] = rem + '0';
+		if (is_printable(str[i]))
+			buffer[i + offset] = str[i];
 		else
-			hex[i] = rem - 10 + 'a';
+			offset += append_hexa_code(str[i], buffer, i + offset);
 
-		num /= 16;
 		i++;
 	}
 
-	for (int j = i - 1; j >= 0; j--)
-	{
-		print_char(hex[j], count);
-	}
+	buffer[i + offset] = '\0';
+
+	return (write(1, buffer, i + offset));
 }
 
+/************************* PRINT REVERSE *************************/
 /**
- * print_hex_upper - Print an unsigned integer in uppercase hexadecimal format.
- * @num: The unsigned integer to print.
- * @count: Pointer to the count of characters printed.
+ * print_reverse - Prints reverse string.
+ * @types: Lista of arguments
+ * @buffer: Buffer array to handle print
+ * @flags:  Calculates active flags
+ * @width: get width
+ * @precision: Precision specification
+ * @size: Size specifier
+ * Return: Numbers of chars printed
  */
-void print_hex_upper(unsigned int num, int *count)
+
+int print_reverse(va_list types, char buffer[],
+	int flags, int width, int precision, int size)
 {
-	if (num == 0)
+	char *str;
+	int i, count = 0;
+
+	UNUSED(buffer);
+	UNUSED(flags);
+	UNUSED(width);
+	UNUSED(size);
+
+	str = va_arg(types, char *);
+
+	if (str == NULL)
 	{
-		print_char('0', count);
-		return;
+		UNUSED(precision);
+
+		str = ")Null(";
 	}
+	for (i = 0; str[i]; i++)
+		;
 
-	int rem;
-	char hex[100];
-	int i = 0;
-
-	while (num != 0)
+	for (i = i - 1; i >= 0; i--)
 	{
-		rem = num % 16;
+		char z = str[i];
 
-		if (rem < 10)
-			hex[i] = rem + '0';
-		else
-			hex[i] = rem - 10 + 'A';
-
-		num /= 16;
-		i++;
+		write(1, &z, 1);
+		count++;
 	}
-
-	for (int j = i - 1; j >= 0; j--)
-	{
-		print_char(hex[j], count);
-	}
+	return (count);
 }
-
+/************************* PRINT A STRING IN ROT13 *************************/
 /**
- * _printf - Custom implementation of printf.
- * @format: The format string with zero or more directives.
- *
- * Return: The number of characters printed (excluding the null byte used to end output to strings).
+ * print_rot13string - Print a string in rot13.
+ * @types: Lista of arguments
+ * @buffer: Buffer array to handle print
+ * @flags:  Calculates active flags
+ * @width: get width
+ * @precision: Precision specification
+ * @size: Size specifier
+ * Return: Numbers of chars printed
  */
-int _printf(const char *format, ...)
+int print_rot13string(va_list types, char buffer[],
+	int flags, int width, int precision, int size)
 {
-	va_list args;
-	va_start(args, format);
-
+	char x;
+	char *str;
+	unsigned int i, j;
 	int count = 0;
-	char ch;
-	const char *str;
-	int num;
-	unsigned int unum;
+	char in[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+	char out[] = "NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm";
 
-	while (*format)
+	str = va_arg(types, char *);
+	UNUSED(buffer);
+	UNUSED(flags);
+	UNUSED(width);
+	UNUSED(precision);
+	UNUSED(size);
+
+	if (str == NULL)
+		str = "(AHYY)";
+	for (i = 0; str[i]; i++)
 	{
-		if (*format == '%')
+		for (j = 0; in[j]; j++)
 		{
-			format++; /* Move past the '%' */
-
-			/* Handle the conversion specifiers */
-			switch (*format)
+			if (in[j] == str[i])
 			{
-				case 'c':
-					ch = (char)va_arg(args, int);
-					print_char(ch, &count);
-					break;
-				case 's':
-					str = va_arg(args, const char *);
-					print_string(str, &count);
-					break;
-				case 'd':
-				case 'i':
-					num = va_arg(args, int);
-					print_integer(num, &count);
-					break;
-				case 'u':
-					unum = va_arg(args, unsigned int);
-					print_unsigned(unum, &count);
-					break;
-				case 'o':
-					unum = va_arg(args, unsigned int);
-					print_octal(unum, &count);
-					break;
-				case 'x':
-					unum = va_arg(args, unsigned int);
-					print_hex(unum, &count);
-					break;
-				case 'X':
-					unum = va_arg(args, unsigned int);
-					print_hex_upper(unum, &count);
-					break;
-				case '%':
-					print_char('%', &count);
-					break;
-				default:
-					print_char('%', &count);
-					print_char(*format, &count);
-					break;
+				x = out[j];
+				write(1, &x, 1);
+				count++;
+				break;
 			}
 		}
-		else
+		if (!in[j])
 		{
-			print_char(*format, &count);
+			x = str[i];
+			write(1, &x, 1);
+			count++;
 		}
-
-		format++;
 	}
-
-	va_end(args);
 	return (count);
 }
